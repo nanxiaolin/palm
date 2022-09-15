@@ -15,7 +15,19 @@ function [ptid cn] = fc(dim, x, y, k, epsilon, factor, showplot)
 %   i.e. cn = cn .* sizes;
 %
 % Xiaolin Nan, UC Berkeley and Lawrence Berkeley National Lab, 2010.
-
+% 
+%
+% ---------------------------------------------------------------------
+% References for DBSCAN:
+% [1] M. Ester, H. Kriegel, J. Sander, X. Xu, A density-based algorithm for 
+% discovering clusters in large spatial databases with noise, proc. 
+% 2nd Int. Conf. on Knowledge Discovery and Data Mining, Portland, OR, 1996, 
+% p. 226, available from: 
+% www.dbs.informatik.uni-muenchen.de/cgi-bin/papers?query=--CO
+% [2] M. Daszykowski, B. Walczak, D. L. Massart, Looking for 
+% Natural Patterns in Data. Part 1: Density Based Approach, 
+% Chemom. Intell. Lab. Syst. 56 (2001) 83-92 
+% ---------------------------------------------------------------------
 
 % First step, calculates particle density
 
@@ -114,7 +126,7 @@ function [ptid cn] = fc(dim, x, y, k, epsilon, factor, showplot)
 	cn = hist(cs, 1:12);	
 	sizes = 1 : 12;
 	cn = cn .* sizes;
-	cn(1) = numel(find(ptid == 0)); 		% scattered particles (i.e, cluster size = 1)
+	cn(1) = numel(find(ptid == 0)); % + numel(find(ptid == -1));		% scattered particles
 	
 	% also show a cluster size histogram
 	if(showplot > 1)

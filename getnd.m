@@ -23,11 +23,11 @@ function nd = getnd(type)
   	nd = r;
   	return;
   else
-  	[h n]= hist(r, -1.25:2.5:202.5);
+  	[h n]= hist(r, -2.5:5:202.5);
   
-  	nd = zeros(50, 2);
-  	nd(:, 1) = n(2:51);
-  	nd(:, 2) = h(2:51);
+  	nd = zeros(40, 2);
+  	nd(:, 1) = n(2:41);
+  	nd(:, 2) = h(2:41);
   end
   
   %bar(nd(:, 1), nd(:, 2)); box on; grid on; axis tight;

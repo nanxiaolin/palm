@@ -35,9 +35,10 @@ global params handles;
    
    show_y = 2*feature_size : palm_ydim - 2*feature_size;
    show_x = 2*feature_size : palm_xdim - 2*feature_size;
-   hold off; imshow(params.palm_img_highres(show_y, show_x, frame_num), [disp_low disp_high]);
-   axis on; %axis image; 
    colormap(hot);
+   hold off; imshow(params.palm_img_highres(show_y, show_x, frame_num), [disp_low disp_high], 'colormap', colormap);
+   axis on; %axis image; 
+   %colormap(hot);
    xlabel('X (nm)');	ylabel('Y (nm)');
    titlemsg = sprintf('PALM Image Rendered at 1 nm/pixel (frame %d of %d). Viewport = (%d, %d) - (%d, %d)', frame_num, params.highres_frames, x0, x1, y0, y1);
    title(titlemsg);

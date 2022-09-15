@@ -4,7 +4,7 @@ function palmlowres(object, event)
 
 	global params;
 
-	[ind x0 y0 x1 y1] = getpointsinview();
+	[ind, x0, y0, x1, y1] = getpointsinview();
 	width  = (x1 - x0 + 1) / params.palm_mag;
 	height = (y1 - y0 + 1) / params.palm_mag;
 
@@ -24,12 +24,12 @@ function palmlowres(object, event)
 	low_img = imgbin(low_img, params.palm_mag);
 	dispmessage('Generating low resolution image. Please wait ... Finished.');
 	pause(0.002);
-	[low high] = autoscale2d(low_img);
+	[low, high] = autoscale2d(low_img);
 	init_mag = params.fig_mag * params.palm_mag * (params.palm_ydim/(y1 - y0 + 1));
 
 	% show the low res image
 	h = figure; set(h, 'Position', [300 100 500 500]);
 	imshow(low_img, [low high], 'InitialMagnification', init_mag); 
-	colormap(hot); axis on; axis image;
+	colormap(gca, 'hot'); axis on; axis image;
 	set(gcf, 'name', 'Low Resolution Image', 'Numbertitle', 'off');
 end

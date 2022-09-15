@@ -24,15 +24,17 @@ function palmstats(object, event)
         figure(h); clf;
 
 	  	% intensity histograms
-	  	n = 0:1000:200000; bshow = 1:150; bwidth = 0.6;
-	  	ints = 2*pi* params.coords(:, 4) .* params.coords(:, 5) .* params.coords(:, 6);
+        ints = 2 * pi * params.coords(:,4) .* params.coords(:, 5) .* params.coords(:, 6) / 90;  
+        med_ints = median(ints); n_max = 4000 * ceil(med_ints/1000); n_step = 50 * ceil(med_ints / 1000);
+	  	n = 0:n_step:n_max; bshow = 1:n_max/n_step; bwidth = 0.6;
 	  	y = hist(ints, n); y = 100.0*y/max(y(bshow));
 	  	subplot(nplots, 1, 1); bar(n(bshow), y(bshow), 'EdgeColor', [0 0.4 0], 'FaceColor', [0 0.6 0]);
-	  	xlim([0 150000]); ylim([0 105]);
+	  	xlim([0 n_max]); ylim([0 105]); 
+        [max_y,idx] = max(y); disp(sprintf('Median=%.1f; Max_Bin=%.1f', med_ints, mean(n(idx))));
 	  	grid on; title('Particle sum intensity (from Gaussian Fitting)');
-	  	x = 0:30000:150000; set(gca, 'XTick', x, 'XTickLabel', sprintf('%.0f|', x), 'XMinorTicks', 'on');
-	  	xlabel('Sum Intensity (a.u.)'); ylabel('% Particles');
-		y = hist(params.scf(:, 3), n); y = 100.0*y/max(y(bshow));
+	  	x = 0:10*n_step:n_max; set(gca, 'XTick', x, 'XMinorTick', 'on', 'XMinorGrid', 'on');
+	  	xlabel('Sum Intensity (# photons)'); ylabel('% Particles');
+		y = hist(params.scf(:, 3)/90.0, n); y = 100.0*y/max(y(bshow));
 	  	hold on; bar(n(bshow), y(bshow), 'EdgeColor', [0.4 0 0], 'FaceColor', [0.6 0 0]);
 		legend('Unsorted particles', 'Sorted particles');
 	
@@ -50,7 +52,7 @@ function palmstats(object, event)
 	  	hold on; bar(n(bshow), y(bshow), 'EdgeColor', [0.2 0.2 0.7], 'FaceColor', [0.4 0.4 0.8], 'BarWidth', 1);
 	  	legend('X Std Err', 'Y Std Err', 'Total Err'); title('Position Errors');
 	  	xlabel('Error (pixel)'); ylabel('% Particles'); ylim([0 110]);
-	  	grid on;  x = 0:0.2:2; set(gca, 'XTick', x, 'XTickLabel', sprintf('%.1f|', x), 'XMinorTicks', 'on');
+	  	grid on;  x = 0:0.2:2; set(gca, 'XTick', x, 'XMinorTick', 'on', 'XMinorGrid', 'on');
 	
 	  	% number of frames histograms
 	  	ind = find(params.scf(:, 5) <= 50);
@@ -58,7 +60,7 @@ function palmstats(object, event)
 	  	y = hist(params.scf(ind, 5), n);   y = 100*y/max(y(bshow));
 	  	subplot(nplots, 1, 3); bar(n(bshow), y(bshow), 'EdgeColor', [0 0.4 0], 'FaceColor', [0 0.6 0], 'BarWidth', 1);
 	  	title('Number of Frames per Particle');
-	  	axis tight; grid on; x = 0:5:60; set(gca, 'XTick', x, 'XTickLabel', sprintf('%d|', x), 'XMinorTicks', 'on');
+	  	axis tight; grid on; x = 0:5:60; set(gca, 'XTick', x, 'XMinorTick', 'on', 'XMinorGrid', 'on');
 	  	xlabel('Number of Frames'); ylabel('% Particles');  ylim([0 110]);
 
 		drawnow;

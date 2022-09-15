@@ -34,6 +34,9 @@ function palmloadui
 	set(handles.palmexport, 'enable', 'off', 'callback', @palmexport);
     handles.palmalign = findobj(h, 'tag', 'btnPalmAlign');
     set(handles.palmalign, 'enable', 'off', 'callback', @palmalign);
+    %handles.makecor = findobj(h, 'tag', 'btnMakeCoor');
+    %set(handles.makecor, 'callback', @makecorfiles);
+    
 	handles.axes = findobj(h, 'tag', 'axCoord');
 	set(handles.axes, 'visible', 'off');
 	set(h, 'CurrentAxes', handles.axes);
@@ -51,6 +54,7 @@ function palmloadui
     set(handles.movieframe, 'enable', 'off');
     handles.timecumulative = findobj(h, 'tag', 'chkTimeCumulative');
     set(handles.timecumulative, 'enable', 'off', 'value', 0);
+    handles.showlandmark = findobj(h, 'tag', 'chkShowLandmark');
 
 	% initialize the edit box controls
 	handles.thresh 	  = findobj(h, 'tag', 'edRMSThresh');
@@ -72,28 +76,38 @@ function palmloadui
 	set(handles.rawstats, 'enable', 'off', 'callback', @rawstats);
 	handles.pointtrack = findobj(h, 'tag', 'btnPointTrack');
 	handles.cluster = findobj(h, 'tag', 'btnClusterAnalysis');	
-	set(handles.cluster, 'enable', 'on', 'callback', @clusteranalysis);
-    handles.findfiducials = findobj(h, 'tag', 'btnFindFiducials');
-    set(handles.findfiducials, 'enable', 'off', 'callback', @findfiducials);
-    handles.driftcorrect = findobj(h, 'tag', 'btnDriftCorrection');
-    set(handles.driftcorrect, 'enable', 'off', 'callback', @driftcorrect);
-
+	set(handles.cluster, 'enable', 'off', 'callback', @clusteranalysis);
+    %handles.findfiducials = findobj(h, 'tag', 'btnFindFiducials');
+    %set(handles.findfiducials, 'enable', 'off', 'callback', @findfiducials);
+    %handles.driftcorrect = findobj(h, 'tag', 'btnDriftCorrection');
+    %set(handles.driftcorrect, 'enable', 'off', 'callback', @ondriftcorrect);
+    handles.joincorfiles = findobj(h, 'tag', 'btnJoincor');
+    set(handles.joincorfiles, 'enable', 'off', 'callback', @joincorfiles);
+    handles.driftcorr = findobj(h, 'tag', 'btnDrift');
+    set(handles.driftcorr, 'enable', 'off', 'callback', @driftcorrect);
+    
 	% a few message displays
 	handles.dispraw    = findobj(h, 'tag', 'dispRawParticles');
 	handles.dispsorted = findobj(h, 'tag', 'dispSortedParticles');
 	handles.disppf = findobj(h, 'tag', 'dispParticleFinding');
 	handles.dispfit = findobj(h, 'tag', 'dispFitting');
 	handles.dispframes = findobj(h, 'tag', 'dispFrames');
+    handles.txtMessage = findobj(h, 'tag', 'txtMessage');
 
 	% set default pref dir attribute
 	params.pref_dir = '/home/xiaolin/Data/Sorted';	
+    params.moviemode = 0;
 
 	% initialize a few figure handles
 	handles.palmfig   = -1;		% figure to show PALM images
 	handles.figstats  = -1;		% figure to show histograms
 	handles.figfine   = -1;
 	handles.figcoarse = -1;
-    
+    handles.figdrift = -1;
+    handles.palmslider = -1;
+    handles.palmfineslider = -1;
+    handles.figmakecor = -1;
+
     % initialize results container 
     results.ktests.num = 0;          % number of k-tests stored
     results.ktests.last = [];          % k-test results

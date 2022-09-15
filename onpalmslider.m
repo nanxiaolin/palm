@@ -35,8 +35,9 @@ function onpalmslider(object, event)
     %set(gca,'drawmode', 'fast');
 
     %set(gca, 'visible', 'off');
-    imshow(params.palm_img(:, :, frame_num), [disp_low disp_high], 'initialmagnification', params.fig_mag);
     colormap(hot);
+    imshow(params.palm_img(:, :, frame_num), [disp_low disp_high], 'initialmagnification', params.fig_mag, 'colormap', colormap);
+    %colormap(hot);
     xlim(xrange); ylim(yrange);
     axis on; %axis image;
 

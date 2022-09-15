@@ -1,4 +1,4 @@
-function palmsort(object, event)
+function [scf, sort_order] = palmsort(object, event)
 %
 % palmsort: sorts particles based on spatial and temporal continuity.
 % this function generates a .scf matrix in the userdata structure
@@ -38,43 +38,138 @@ function palmsort(object, event)
 %  using a frame-based algorithm
 %  Sorting speed increased dramatically by ~50x
 %
-% Revision on 03/26/2016
-%  Adapted this function to deal with situations where a temporary sorting
-%  is needed, such as when looking for fiducaries
-%  in such cases, the object is set to 0
+% Revision on 02/10/2020
+%  Incorporated implementations of drift correction. Simply apply the
+%  correction before the sorting starts.
+%  Other revisions:
+%  1. added an option to stop sorting once sorting has started
+%  2. added options based on the 'event' code, where event == 0 means
+%     sorting in the background, where the object is the handle for
+%     displaying the progress of sorting. this allows scripts such as
+%     driftcorrect to run a separate sorting process without affecting the
+%     main scf and sort_order fields.
+% 
+% Revision on 02/27/2020
+%  Now enables sorting within specific frame ranges. this facilitates 
+%  identification of fiducial markers and is not intended for sorting 
+%  specific frame ranges.
+
 
 	global h_palmpanel handles params;
-
-	if object ~= 0
-        % normal sorting function. 
-        % step 1, read out the parameters: threshold; combine frames and distance
-        thresh  = str2num(get(handles.thresh, 'string'));
-        preturn = str2num(get(handles.comframes, 'string'));
-        pdist   = str2num(get(handles.comdist, 'string'));
-        
-        min_goodness = str2num(get(handles.mingood, 'string'));
-        max_eccentricity = str2num(get(handles.maxeccen, 'string'));
-    else
-        thresh = params.temp_thresh;
-        preturn = params.temp_preturn;
-        pdist = params.temp_pdist;
-        min_goodness = params.temp_min_goodness;
-        max_eccentricity = params.temp_max_eccentricity;
+    
+    % added in revision 02/10/20 - to allow silent calls as well as batch
+    % processing (action = 'silent' and 'batch', respectively'
+    % step 0, determine the source of the call
+    switch event.EventName
+        case 'Action'       % this is the callback from 'Sort' button
+            stoppable = true;
+            % all the messages will be shown on the main status bar
+            h_msg = handles.txtMessage;
+            % allow the results to be updated to params
+            update_params = true;
+            % allow the results to be saved to the cor file
+            save_results = true;
+            return_results = false;
+            
+            % the sorting parameters should come from the current form
+            thresh  = str2double(get(handles.thresh, 'string'));
+            preturn = str2double(get(handles.comframes, 'string'));
+            pdist   = str2double(get(handles.comdist, 'string'));
+            pixsize = str2double(get(handles.pixelsize, 'string'));
+            min_goodness = str2double(get(handles.mingood, 'string'));
+            max_eccentricity = str2double(get(handles.maxeccen, 'string'));
+			frame_start = params.coords(1, 1);
+			last_frame = params.frames + frame_start - 1;
+            
+        case 'Silent'       % silent call from other apps like driftcorrect
+            stoppable = false;
+            h_msg = object;     % this defines where the message will go
+            update_params = false;
+            save_results = false;
+            return_results = true;
+            
+            % the sorting parameters should come from the Events structure
+            thresh = event.thresh;
+            preturn = event.preturn;
+            pdist = event.pdist;
+            pixsize = str2double(get(handles.pixelsize, 'string'));
+            min_goodness = event.min_goodness;
+            max_eccentricity = event.max_eccentricity;
+			
+			% note: here, frame_start counts from the first frame, which may have a frame # > 1
+			first_frame = params.coords(1, 1);
+			frame_start = event.fstart + first_frame - 1;
+			last_frame = event.fend + first_frame - 1;
+			
+			if last_frame > (params.frames + params.coords(1,1) - 1)
+				last_frame = params.frames + params.coords(1,1) - 1;
+			end
+            
+        case 'Batch'
+            % this is the mode that allows batch processing, in which case
+            % there is msg update but no stop button nor params updates
+            stoppable = false;
+            h_msg = handles.txtMessage;
+            update_params = false;
+            save_results = true;
+            return_results = false;
+            
+            % the sorting parameters should come from the Events structure
+            thresh = event.thresh;
+            preturn = event.preturn;
+            pdist = event.pdist;
+            pixsize = event.pixelsize;
+            min_goodness = event.min_goodness;
+            max_eccentricity = event.max_eccentricity;
+			
+			frame_start = params.coords(1, 1);
+			last_frame = params.frames + params.coords(1,1) - 1;
     end
     
-    pixsize = str2num(get(handles.pixelsize, 'string'));
-    pdist   = pdist / pixsize;		% convert the pdist units to pixels (always use pixels before final rendering)
-    
+	update_status(h_msg, 'Preparing variables for sorting ...');   
+	pause(0.02);
+	
+	pdist   = pdist / pixsize;		% convert the pdist units to pixels (always use pixels before final rendering)
 	sort_order = zeros(length(params.coords), 1);		
+	
 	% this matrix will record particle number assignments in the same order as in coords matrix
 	
-	% step 2, generate a temp matrix which has all SNR greater than RMS threshold
-	rms = mean(params.coords(:, 7)); 		% average noise level
-	snr = params.coords(:, 4) ./ params.coords(:, 7);
-	%figure; hist(snr, 300); grid on;
-	r = find(snr >= thresh);	raw_ind = r;
-	temp_sorted = params.coords(r, :);
+	% 02/27/2020. added a frame range specifier here
+	r = find(params.coords(:, 1) >= frame_start);
+	temp_sorted = params.coords(r, :);	raw_ind = r;
+	r = find(temp_sorted(:, 1) <= last_frame);
+	temp_sorted = temp_sorted(r, :);	raw_ind = raw_ind(r);
 
+	% step 2, generate a temp matrix which has all SNR greater than RMS threshold
+	% rms = mean(params.coords(:, 7)); 		% average noise level
+	snr = temp_sorted(:, 4) ./ temp_sorted(:, 7);
+	%figure; hist(snr, 300); grid on;
+	r = find(snr >= thresh);	
+	temp_sorted = temp_sorted(r, :);	raw_ind = raw_ind(r);
+    
+    % apply the drift corrections to temp_sorted
+	% the drift.x and drift.y fields do not have frame # info, therefore the f_num
+	% is relative to the first frame
+    if isfield(params, 'drift')
+        % disp('sorting with drift corrections.');
+        
+        x_raw = temp_sorted(:, 2)';
+        y_raw = temp_sorted(:, 3)';
+		
+		% f_num used by .drift.x and .drift.y starts from 1
+        f_num = temp_sorted(:, 1) - params.coords(1, 1) + 1;	
+        idx = 1 : length(x_raw); 
+    
+        % apply the corrections
+        x_raw(idx) = x_raw(idx) - params.drift.x(f_num(idx));
+        y_raw(idx) = y_raw(idx) - params.drift.y(f_num(idx));    
+        
+        % save the modified coordinates back to temp_sorted
+        temp_sorted(:, 2) = x_raw';
+        temp_sorted(:, 3) = y_raw';
+    end
+    
+    
 	% goodness filter
 	r = find(temp_sorted(:, 8) <= min_goodness);
 	temp_sorted = temp_sorted(r, :);
@@ -82,7 +177,6 @@ function palmsort(object, event)
 
 	% eccentricity filter
 	eccentric = temp_sorted(:, 5) ./ temp_sorted(:, 6);
-
 	r = find(eccentric <= max_eccentricity);
 	temp_sorted = temp_sorted(r, :);
 	raw_ind = raw_ind(r);
@@ -102,7 +196,7 @@ function palmsort(object, event)
 	
 	% particle sequence number
 	particle_num = 0;
-	frame_start = params.coords(1, 1);
+	%frame_start = params.coords(1, 1);
     last_frame = max(sorted(:, 1));
     sorted(:, 8) = 0; % all particles will be renumbered but their order in the matrix will remain the same
     
@@ -113,8 +207,28 @@ function palmsort(object, event)
     scf = zeros(raw_numparticles, 7);
     temp = zeros(raw_numparticles, 2);      % temp array to store sum(x) and sum(y)
     
+    update_status(h_msg, 'Preparing variables for sorting ... Done. Sorting started.');
+    pause(0.2);
+    
+    % if stoppable, change the button 'Sort' to 'Stop' to allow cancellation 
+    stopped = false;
+    if stoppable 
+        set(handles.palmsort, 'string', 'STOP', 'callback', @onstopsort);
+    else
+        set(handles.palmsort, 'enable', 'off');
+    end
+    
     % revision 12/01/2014: change to a particle based sorting mechanism
     for i = 1: raw_numparticles
+        
+        if (stopped == true)
+            %whos
+            % restore the button status
+            set(handles.palmsort, 'string', 'Sort', 'callback', @palmsort);
+            clear
+            return;
+        end
+        
         cur_frame = sorted(i, 1);
         
         end_frame = cur_frame + preturn + 1;
@@ -212,13 +326,8 @@ function palmsort(object, event)
         end
         
         if mod(i, 1000) == 0	|| i == raw_numparticles || i == 1
- 			if object ~= 0
-                msg = sprintf('Sorting particle %d', i);
-            else
-                msg = sprintf('Sorting particles %d to look for fiduciaries. Please wait ...', i);
-            end
-            
- 			dispmessage(msg);
+ 			msg = sprintf('Sorting particle %d', i);
+ 			update_status(h_msg, msg);
  			pause(0.001);		
  		end
     end
@@ -250,8 +359,8 @@ function palmsort(object, event)
     sum_dy2 = scf(1:particle_num, 5) .* (scf(1:particle_num, 2) .^2);
     scf(1:particle_num, 7) = sqrt(abs(sum_y2 - 2 * (dy .* temp(1:particle_num, 2)) + sum_dy2));
   
-    scf(1:particle_num, 1) = scf(1:particle_num, 1)  - params.xoff + 1;
-    scf(1:particle_num, 2) = scf(1:particle_num, 2)  - params.yoff + 1;
+    %scf(1:particle_num, 1) = scf(1:particle_num, 1)  - params.xoff + 1;
+    %scf(1:particle_num, 2) = scf(1:particle_num, 2)  - params.yoff + 1;
     
     
 	% revision on 08/05/2010: added estimation of std_x and std_y on particles with num_frames == 1 (std_x = std_y = 0.707 * err)
@@ -267,17 +376,18 @@ function palmsort(object, event)
 	%scf(ind, 7) = scf(ind, 6);
 	% this does not work as expected.
 	
-	msg = sprintf('Particle sorting finished. ');
-	dispmessage(msg);
-	pause(0.01);
-    
-    if object ~= 0
+	msg = sprintf('Sorting finished. Preparing to save and/or update the results ...');
+	update_status(h_msg, msg);
+
+	if update_params
         set(handles.dispsorted, 'String', sprintf('%d', particle_num));
-        
-        % commit changes to the userdata structure
+        pause(0.02);
+    
+        % commit changes to params
         params.scf = scf;
         params.sort_order = sort_order;
-        
+        params.is_sorted = 1;
+
         % now populate the sortpars a data structure that stores sorting parameters
         sortpars.pixelsize = pixsize;
         sortpars.pdist = str2num(get(handles.comdist, 'string'));
@@ -285,27 +395,52 @@ function palmsort(object, event)
         sortpars.preturn = preturn;
         sortpars.goodness = min_goodness;
         sortpars.eccentric = max_eccentricity;
-        
+
         params.sortpars = sortpars;
         
-        % save the file (always leave the .coords part untoched. that is the raw data.)
-        save(params.fullname, 'sortpars', 'scf', 'sort_order', '-APPEND');
-        
-        dispmessage('Sorting finished. Results saved to file. Ready to RENDER.');
-        
-        % enable the 'render' button
+        % change the status of related buttons
         set(handles.renderpalm, 'enable', 'on');
         set(handles.palmstats, 'enable', 'on');
+        set(handles.moviemode, 'enable', 'on', 'value', 0);
     else
-        % for temporary sorting results, save the scf and sort_order to
-        % temp array under params.
-        
-        params.temp_scf = scf;
-        params.temp_sort_order = sort_order;
+        update_status(h_msg, 'Sorting finished. No changes made to the params structure.');
+        pause(1);
     end
-        
-    clear sorted;
-    clear sort_order;
-    clear temp;
-    clear scf;
-return
+    
+    if save_results
+        % also save the .drift and the .fiducials fields
+        drift = params.drift;
+        fiducials = params.fiducials;
+
+        % save the file (always leave the .coords part untoched. that is the raw data.)
+        save(params.fullname, 'sortpars', 'scf', 'sort_order', 'drift', 'fiducials', '-APPEND');
+        update_status(h_msg, 'Sorting finished. Results saved to file. Ready to RENDER.');
+    else 
+        update_status(h_msg, 'Sorting fishied. Results not saved to file.');
+        pause(1);
+    end
+
+	% enable the 'render' button
+
+    set(handles.palmsort, 'Enable', 'on', 'string', 'Sort', 'callback', @palmsort);
+    
+    if ~return_results % if not saveing the results then return scf and sort_order
+        clear;
+    end
+    
+    %%%%%%%%% function update_status %%%%%%%%%%%
+    function update_status(h_msg, msg)
+       if ~isempty(h_msg) && ~isempty(msg)
+            set(h_msg, 'string', msg);
+       end
+    end
+    %%%%%%%%%% end of update_status %%%%%%%%%%
+    
+    %%%%%%%%% function onstopsort %%%%%%%%%%%%
+    function onstopsort(object, event)
+       if stoppable
+            stopped = true; 
+       end
+    end
+    %%%%%%%%% end of onstopsort %%%%%%%%%%%%%%%
+end

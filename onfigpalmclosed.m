@@ -20,7 +20,7 @@ function onfigpalmclosed(object, event)
         handles.palmslider = -1;
     end
 	
-	stopcluster(0,0);
+	% stopcluster(0,0);
 
 	set(handles.highres, 'enable', 'off');
 	set(handles.lowres, 'enable', 'off');
